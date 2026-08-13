@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agent Test Console</title>
+<style>
+  :root{
+    --bg: #0d1117;
+    --panel: #131a24;
+    --border: #232c3a;
+    --user-bg: #1f6feb22;
+    --user-border: #3b82f6;
+    --agent-bg: #16241c;
+    --agent-border: #2ea043;
+    --text: #e6edf3;
+    --text-dim: #7d8590;
+    --accent: #3b82f6;
+    --danger: #f85149;
+    --mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{height:100%;}
+  body{
+    margin:0;
+    background:#05070a;
+    color:var(--text);
+    font-family:var(--sans);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    height:100vh;
+    overflow:hidden;
+  }
+
+  #phone{
+    width:390px;
+    max-width:100vw;
+    height:100vh;
+    max-height:844px;
+    background:var(--bg);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    border:1px solid var(--border);
+    box-shadow:0 0 60px rgba(0,0,0,.5);
+    position:relative;
+  }
+  @media (min-width:430px) and (min-height:900px){
+    #phone{ border-radius:36px; }
+  }
+
+  header{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:14px 20px;
+    border-bottom:1px solid var(--border);
+    background:var(--panel);
+    flex-shrink:0;
+    gap:12px;
+  }
+  .brand{
+    display:flex;
+    flex-direction:column;
+    gap:2px;
+    min-width:0;
+  }
+  .brand .title-row{
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .brand .dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--agent-border);
+    flex-shrink:0;
+    box-shadow:0 0 8px var(--agent-border);
+  }
+  .brand h1{
+    font-size:15px;
+    font-weight:600;
+    margin:0;
+    white-space:nowrap;
+  }
+  .session-id{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--text-dim);
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    padding-left:16px;
+    cursor:pointer;
+    user-select:none;
+    transition:color .15s ease;
+  }
+  .session-id:hover{ color:var(--text); }
+
+  .toast{
+    position:absolute;
+    top:14px;
+    left:50%;
+    transform:translateX(-50%) translateY(-12px);
+    background:var(--panel);
+    border:1px solid var(--agent-border);
+    color:var(--text);
+    font-size:12px;
+    font-weight:500;
+    padding:9px 16px;
+    border-radius:8px;
+    box-shadow:0 4px 20px rgba(0,0,0,.4);
+    opacity:0;
+    pointer-events:none;
+    transition:opacity .2s ease, transform .2s ease;
+    z-index:10;
+    white-space:nowrap;
+  }
+  .toast.show{
+    opacity:1;
+    transform:translateX(-50%) translateY(0);
+  }
+  .header-actions{
+    display:flex;
+    gap:8px;
+    flex-shrink:0;
+  }
+  button{
+    font-family:var(--sans);
+    cursor:pointer;
+    border:none;
+    border-radius:6px;
+    font-size:13px;
+    transition:background .15s ease, opacity .15s ease;
+  }
+  .btn-icon{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text-dim);
+    width:32px;height:32px;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .btn-icon:hover{ border-color:var(--accent); color:var(--text); }
+  .btn-reset{
+    background:transparent;
+    border:1px solid var(--danger);
+    color:var(--danger);
+    padding:7px 14px;
+    font-weight:500;
+  }
+  .btn-reset:hover{ background:var(--danger); color:#fff; }
+
+  #chat{
+    flex:1;
+    overflow-y:auto;
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+    gap:10px;
+  }
+  .empty-state{
+    margin:auto;
+    text-align:center;
+    color:var(--text-dim);
+    font-size:13px;
+    max-width:320px;
+    line-height:1.6;
+  }
+  .empty-state .big{
+    font-size:14px;
+    color:var(--text);
+    margin-bottom:6px;
+    font-weight:500;
+  }
+
+  .msg-row{
+    display:flex;
+    width:100%;
+  }
+  .msg-row.user{ justify-content:flex-end; }
+  .msg-row.agent{ justify-content:flex-start; }
+
+  .bubble{
+    max-width:72%;
+    padding:10px 14px;
+    border-radius:12px;
+    font-size:14px;
+    line-height:1.5;
+    white-space:pre-wrap;
+    word-wrap:break-word;
+    position:relative;
+  }
+  .msg-row.user .bubble{
+    background:var(--user-bg);
+    border:1px solid var(--user-border);
+    border-bottom-right-radius:3px;
+  }
+  .msg-row.agent .bubble{
+    background:var(--agent-bg);
+    border:1px solid var(--agent-border);
+    border-bottom-left-radius:3px;
+  }
+  .meta{
+    display:block;
+    font-family:var(--mono);
+    font-size:10px;
+    color:var(--text-dim);
+    margin-top:5px;
+    opacity:.7;
+  }
+
+  .typing .bubble{
+    display:flex;
+    align-items:center;
+    gap:4px;
+    padding:14px;
+  }
+  .typing-dot{
+    width:5px;height:5px;border-radius:50%;
+    background:var(--text-dim);
+    animation:blink 1.2s infinite ease-in-out;
+  }
+  .typing-dot:nth-child(2){ animation-delay:.2s; }
+  .typing-dot:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{ 0%,80%,100%{opacity:.2;} 40%{opacity:1;} }
+
+  footer{
+    flex-shrink:0;
+    padding:14px 20px 18px;
+    border-top:1px solid var(--border);
+    background:var(--panel);
+  }
+  .composer{
+    display:flex;
+    gap:10px;
+    align-items:flex-end;
+  }
+  #msg-input{
+    flex:1;
+    background:var(--bg);
+    border:1px solid var(--border);
+    color:var(--text);
+    font-family:var(--sans);
+    font-size:14px;
+    padding:11px 14px;
+    border-radius:10px;
+    outline:none;
+    resize:none;
+    max-height:120px;
+    line-height:1.4;
+  }
+  #msg-input:focus{ border-color:var(--accent); }
+  .btn-send{
+    background:var(--accent);
+    color:#fff;
+    width:42px;height:42px;
+    border-radius:10px;
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+  }
+  .btn-send:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-send:not(:disabled):hover{ opacity:.85; }
+  .error-banner{
+    margin-top:8px;
+    font-size:12px;
+    color:var(--danger);
+    font-family:var(--mono);
+    display:none;
+  }
+  .error-banner.show{ display:block; }
+
+  #chat::-webkit-scrollbar{ width:8px; }
+  #chat::-webkit-scrollbar-thumb{ background:var(--border); border-radius:4px; }
+
+  @media (max-width:520px){
+    .bubble{ max-width:85%; }
+  }
+</style>
+</head>
+<body>
+
+<div id="phone">
+
+<div class="toast" id="toast"></div>
+
+<header>
+  <div class="brand">
+    <div class="title-row">
+      <span class="dot"></span>
+      <h1>Agent Test Console</h1>
+    </div>
+    <span class="session-id" id="session-id-display">session: —</span>
+  </div>
+  <div class="header-actions">
+    <button class="btn-reset" id="reset-btn">Сбросить сессию</button>
+  </div>
+</header>
+
+<div id="chat">
+  <div class="empty-state" id="empty-state">
+    <div class="big">Диалог пуст</div>
+    Отправьте сообщение, чтобы начать сессию с агентом.
+  </div>
+</div>
+
+<footer>
+  <div class="composer">
+    <textarea id="msg-input" placeholder="Введите сообщение…" rows="1"></textarea>
+    <button class="btn-send" id="send-btn" title="Отправить">➤</button>
+  </div>
+  <div class="error-banner" id="error-banner"></div>
+</footer>
+
+</div>
+
+<script>
+(function(){
+  // ==========================================================
+  // TODO(Костя): вставить сюда реальный URL вебхука перед тем,
+  // как давать ссылку на лендинг тестировщикам.
+  // Ожидаемый контракт запроса/ответа описан ниже, в sendToWebhook().
+  // ==========================================================
+  const WEBHOOK_URL = "https://your-webhook-url-here.example.com/webhook";
+
+  const STORAGE_KEY = "chat_state";
+
+  let state = { session_id: null, messages: [] };
+
+  const chatEl = document.getElementById("chat");
+  const emptyState = document.getElementById("empty-state");
+  const inputEl = document.getElementById("msg-input");
+  const sendBtn = document.getElementById("send-btn");
+  const resetBtn = document.getElementById("reset-btn");
+  const sessionDisplay = document.getElementById("session-id-display");
+  const errorBanner = document.getElementById("error-banner");
+  const toastEl = document.getElementById("toast");
+
+  function uuid(){
+    return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c){
+      const r = Math.random()*16|0, v = c === "x" ? r : (r&0x3|0x8);
+      return v.toString(16);
+    });
+  }
+
+  function showError(msg){
+    errorBanner.textContent = msg;
+    errorBanner.classList.add("show");
+    setTimeout(()=>errorBanner.classList.remove("show"), 6000);
+  }
+
+  let toastTimer = null;
+  function showToast(msg){
+    toastEl.textContent = msg;
+    toastEl.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=>toastEl.classList.remove("show"), 2000);
+  }
+
+  async function copySessionId(){
+    try{
+      await navigator.clipboard.writeText(state.session_id);
+    }catch(e){
+      // fallback для окружений без Clipboard API
+      const ta = document.createElement("textarea");
+      ta.value = state.session_id;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      try{ document.execCommand("copy"); }catch(e2){}
+      document.body.removeChild(ta);
+    }
+    showToast("Session ID copied!");
+  }
+
+  async function loadState(){
+    try{
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        state = JSON.parse(raw);
+      }
+    }catch(e){
+      // повреждённые данные или localStorage недоступен — начинаем с чистого листа
+    }
+    if(!state.session_id){
+      state = { session_id: uuid(), messages: [] };
+      await persistState();
+    }
+    sessionDisplay.textContent = "session: " + state.session_id;
+  }
+
+  async function persistState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    }catch(e){
+      showError("Не удалось сохранить историю (localStorage недоступен или переполнен)");
+    }
+  }
+
+  function fmtTime(ts){
+    const d = new Date(ts);
+    const date = d.toLocaleDateString('ru-RU'); // дд.мм.гггг
+    const time = d.toLocaleTimeString('ru-RU', {hour:'2-digit', minute:'2-digit', second:'2-digit'});
+    return date + " " + time;
+  }
+
+  function renderMessage(m){
+    const row = document.createElement("div");
+    row.className = "msg-row " + (m.is_echo ? "agent" : "user");
+    const bubble = document.createElement("div");
+    bubble.className = "bubble";
+    bubble.textContent = m.text;
+    const meta = document.createElement("span");
+    meta.className = "meta";
+    meta.textContent = (m.is_echo ? "агент" : "вы") + " · " + fmtTime(m.timestamp);
+    bubble.appendChild(meta);
+    row.appendChild(bubble);
+    chatEl.appendChild(row);
+  }
+
+  function renderAll(){
+    chatEl.querySelectorAll(".msg-row, .typing").forEach(el => el.remove());
+    emptyState.style.display = state.messages.length ? "none" : "block";
+    state.messages.forEach(renderMessage);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  function showTyping(){
+    const row = document.createElement("div");
+    row.className = "msg-row agent typing";
+    row.id = "typing-indicator";
+    row.innerHTML = '<div class="bubble"><div class="typing-dot"></div><div class="typing-dot"></div><div class="typing-dot"></div></div>';
+    chatEl.appendChild(row);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+  function hideTyping(){
+    const el = document.getElementById("typing-indicator");
+    if(el) el.remove();
+  }
+
+  async function sendToWebhook(payload){
+    const res = await fetch(WEBHOOK_URL, {
+      method: "POST",
+      headers: {"Content-Type": "application/json"},
+      body: JSON.stringify(payload)
+    });
+    if(!res.ok){
+      throw new Error("HTTP " + res.status);
+    }
+    return res.json().catch(()=>({}));
+  }
+
+  async function handleSend(){
+    const text = inputEl.value.trim();
+    if(!text) return;
+
+    const userMsg = {
+      id: uuid(),
+      session_id: state.session_id,
+      text: text,
+      is_echo: false,
+      timestamp: Date.now()
+    };
+    state.messages.push(userMsg);
+    renderAll();
+    await persistState();
+
+    inputEl.value = "";
+    inputEl.style.height = "auto";
+    sendBtn.disabled = true;
+    showTyping();
+
+    try{
+      const reply = await sendToWebhook({
+        session_id: userMsg.session_id,
+        message_id: userMsg.id,
+        text: userMsg.text,
+        is_echo: false
+      });
+
+      const replyText = (reply && (reply.text || reply.message || reply.reply)) || "(агент не вернул текст ответа)";
+
+      const agentMsg = {
+        id: uuid(),
+        session_id: state.session_id,
+        text: replyText,
+        is_echo: true,
+        timestamp: Date.now()
+      };
+      state.messages.push(agentMsg);
+      hideTyping();
+      renderAll();
+      await persistState();
+
+      // отдельный лог-вызов вебхука с сообщением агента (fire-and-forget)
+      sendToWebhook({
+        session_id: agentMsg.session_id,
+        message_id: agentMsg.id,
+        text: agentMsg.text,
+        is_echo: true
+      }).catch(()=>{});
+
+    }catch(e){
+      hideTyping();
+      showError("Ошибка вебхука: " + e.message);
+    }finally{
+      sendBtn.disabled = false;
+    }
+  }
+
+  async function handleReset(){
+    if(!confirm("Сбросить сессию? История сообщений будет очищена, будет создан новый session id.")){
+      return;
+    }
+    state = { session_id: uuid(), messages: [] };
+    await persistState();
+    sessionDisplay.textContent = "session: " + state.session_id;
+    renderAll();
+  }
+
+  inputEl.addEventListener("input", () => {
+    inputEl.style.height = "auto";
+    inputEl.style.height = Math.min(inputEl.scrollHeight, 120) + "px";
+  });
+  inputEl.addEventListener("keydown", (e) => {
+    if(e.key === "Enter" && !e.shiftKey){
+      e.preventDefault();
+      handleSend();
+    }
+  });
+  sendBtn.addEventListener("click", handleSend);
+  resetBtn.addEventListener("click", handleReset);
+  sessionDisplay.addEventListener("click", copySessionId);
+
+  (async function init(){
+    await loadState();
+    renderAll();
+  })();
+})();
+</script>
+
+</body>
+</html>
