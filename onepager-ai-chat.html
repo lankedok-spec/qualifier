@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ванпейджер проекта</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Golos+Text:wght@400;500;600;700&family=Unbounded:wght@500;600&display=swap" rel="stylesheet">
+<!--
+  ШАБЛОН ВАНПЕЙДЖЕРА v2 — один экран, эталон 1366×768
+  Для нового проекта меняется только JSON в блоке <script id="onepager-data">.
+  Разметку, стили и скрипт не трогать — так все ванпейджеры выглядят одинаково.
+
+  Порядок чтения: цель проекта → текущий результат → промежуточная цель и этапы → артефакты.
+  Блока проблем и общего статуса нет.
+
+  Поля:
+  Лимиты длины нужны, чтобы всё влезло в один экран.
+
+  project    — название проекта
+  summary    — что это за проект: одно предложение для человека без контекста, до ~120 знаков
+  owner      — ответственный
+  updated    — дата обновления, ГГГГ-ММ-ДД
+  goal       — цель проекта по SMART: { "title": формулировка до ~110 знаков, "deadline": ГГГГ-ММ-ДД,
+               "estimate": прогноз оставшихся трудозатрат, напр. "41 час" — необязательно }
+               Если deadline есть, справа показывается срок. Если deadline нет, а estimate есть —
+               показывается «Осталось» и прогноз. Когда появится дата, она заменит прогноз.
+  result     — текущий результат относительно цели проекта: 1–3 предложения о том, что уже есть, до ~250 знаков
+  milestone  — промежуточная цель: { "title" (до ~75 знаков), "deadline": ГГГГ-ММ-ДД, "stages": [...] }
+               stages — этапы к ней по порядку, не больше 8:
+               { "title" (до ~70 знаков), "status": "done" | "active" | "todo" | "blocked",
+                 "note" (необязательно, до ~90 знаков) }
+  artifacts  — готовые артефакты, не больше 5: { "title", "type", "url" }
+
+  Номера задач вида №1234567 в result и note сами становятся ссылками на задачу в ERP.
+-->
+<style>
+  :root {
+    --ink: #18212B;
+    --muted: #5B6773;
+    --line: #DCE1E6;
+    --rail: #C3CBD3;
+    --pale: #E8ECEF;
+    --win: #1E7F55;
+    --display: "Unbounded", "Golos Text", system-ui, sans-serif;
+    --text: "Golos Text", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; }
+  body {
+    font: 16px/1.5 var(--text);
+    color: var(--ink);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Весь ванпейджер — один экран */
+  .page {
+    min-height: 100vh;
+    max-width: 1286px;
+    margin: 0 auto;
+    padding: 14px 40px;
+    display: flex; flex-direction: column; justify-content: center;
+    gap: 14px;
+  }
+
+  /* Шапка: название, суть, ответственный */
+  .head { display: flex; justify-content: space-between; align-items: flex-start; gap: 32px; }
+  .name { margin: 0; font: 600 20px/1.25 var(--display); letter-spacing: -0.01em; }
+  .summary { margin: 3px 0 0; max-width: 110ch; font-size: 14.5px; line-height: 1.45; color: var(--muted); }
+  .meta { flex: none; text-align: right; font-size: 13.5px; line-height: 1.6; color: var(--muted); }
+  .meta b { color: var(--ink); font-weight: 600; }
+  .stale { color: #A86E06; font-weight: 600; }
+
+  /* Цель проекта — самый крупный блок */
+  .goal {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 32px;
+    padding: 18px 28px;
+    border-radius: 14px;
+    background: var(--ink); color: #fff;
+  }
+  .label { margin: 0 0 4px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
+  .goal .label { color: rgba(255, 255, 255, .62); }
+  .goal-title { margin: 0; font-size: 24px; line-height: 1.25; font-weight: 700; text-wrap: pretty; }
+  .deadline { min-width: 180px; padding-left: 32px; border-left: 1px solid rgba(255, 255, 255, .2); }
+  .deadline-date { font: 600 19px/1.2 var(--display); white-space: nowrap; }
+  .deadline-left { margin-top: 4px; font-size: 14px; color: rgba(255, 255, 255, .72); }
+
+  /* Низ: результат и артефакты слева, промежуточная цель справа */
+  .lower { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 44px; padding: 6px 0 0; }
+  .block { padding-top: 10px; border-top: 2px solid var(--ink); }
+  .block-title { margin: 0 0 6px; font-size: 16px; line-height: 1.3; font-weight: 700; color: var(--ink); }
+  .result { margin: 0; max-width: 48ch; font-size: 16.5px; line-height: 1.5; }
+  .arts { margin-top: 20px; }
+  .art {
+    display: flex; justify-content: space-between; align-items: baseline; gap: 16px;
+    padding: 7px 0; border-top: 1px solid var(--line);
+    color: var(--ink); text-decoration: none;
+  }
+  .art:first-child { padding-top: 2px; border-top: 0; }
+  a.art:hover .art-title { text-decoration: underline; text-underline-offset: 3px; }
+  .art-title { font-size: 15.5px; font-weight: 500; }
+  .art-type { flex: none; font-size: 13px; color: var(--muted); }
+  .empty { margin: 0; color: var(--muted); }
+
+  .ms-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 24px; margin-bottom: 4px; }
+  .ms-top .block-title { margin: 0; }
+  .ms-title { margin: 0; font-size: 18px; line-height: 1.3; font-weight: 700; text-wrap: pretty; }
+  .ms-meta { display: flex; flex-wrap: wrap; gap: 0 20px; font-size: 13.5px; color: var(--muted); }
+  .ms-meta strong { color: var(--ink); font-weight: 600; }
+  .ms-meta .win { color: var(--win); }
+
+  /* Этапы — маршрут с остановками */
+  .route { list-style: none; margin: 10px 0 0; padding: 0; }
+  .stop {
+    position: relative;
+    display: grid; grid-template-columns: 20px minmax(0, 1fr); column-gap: 12px;
+    padding-bottom: 5px;
+  }
+  .stop::before {
+    content: ""; position: absolute; left: 9px; top: 18px; bottom: -1px; width: 2px;
+    background: repeating-linear-gradient(to bottom, var(--rail) 0 4px, transparent 4px 8px);
+  }
+  .stop.done::before { background: var(--win); }
+  .stop:last-child { padding-bottom: 0; }
+  .stop:last-child::before { display: none; }
+
+  .mark {
+    position: relative; z-index: 1;
+    width: 20px; height: 20px; border-radius: 50%;
+    display: grid; place-items: center;
+    background: #fff; border: 2px solid var(--rail);
+  }
+  .done .mark    { background: var(--win); border-color: var(--win); }
+  .active .mark  { border: 2.5px solid var(--ink); }
+  .active .mark::after { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); }
+  .blocked .mark { background: var(--pale); }
+
+  .stop-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .stop-title { min-width: 0; font-size: 15px; line-height: 20px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .active .stop-title { font-weight: 700; }
+  .todo .stop-title, .blocked .stop-title { color: var(--muted); }
+  .tag { flex: none; padding: 0 8px; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 18px; }
+  .active .tag  { background: var(--ink); color: #fff; }
+  .blocked .tag { background: var(--pale); color: var(--muted); }
+  .stop-note { font-size: 12.5px; line-height: 16px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  .ticket-link { color: inherit; text-decoration: underline; text-underline-offset: 2px; font-weight: 600; }
+  .ticket-link:hover { color: #1765A3; }
+  a:focus-visible { outline: 2px solid var(--ink); outline-offset: 3px; border-radius: 4px; }
+
+  @media (max-width: 760px) {
+    .page { padding: 20px; justify-content: flex-start; }
+    .head { flex-direction: column; gap: 10px; }
+    .meta { text-align: left; }
+    .goal { grid-template-columns: 1fr; gap: 16px; padding: 20px; }
+    .goal-title { font-size: 22px; }
+    .deadline { padding: 14px 0 0; border-left: 0; border-top: 1px solid rgba(255, 255, 255, .2); }
+    .lower { grid-template-columns: 1fr; gap: 28px; }
+    .stop-title, .stop-note { white-space: normal; }
+  }
+  @media print {
+    .page { min-height: 0; }
+  }
+</style>
+</head>
+<body>
+
+<script id="onepager-data" type="application/json">
+{
+  "project": "ИИ-квалификатор в чате на сайтах",
+  "summary": "Бот ведёт чат с клиентами на сайтах компании и сам создаёт лид в БЭК. Чат JivoSite заменяем своим чатом с ботом.",
+  "owner": "Константин Тимошкин",
+  "updated": "2026-11-18",
+  "goal": {
+    "title": "Бот ведёт 100% чатов на всех сайтах компании, а все переписки видны в БЭК",
+    "estimate": "≈30 часов"
+  },
+  "result": "Бот ведёт чаты и сам создаёт лиды в БЭК на 81 сайте сети 4. Оформление чата вынесено в настройки — его можно ставить на сайты других сетей без переделки кода.",
+  "milestone": {
+    "title": "Чат с ботом можно включить на сайтах любой сети",
+    "stages": [
+      {
+        "title": "Вынести оформление чата в настройки сети",
+        "status": "done",
+        "note": "Цвета, шрифты и размеры окна под каждую сеть меняются без правки кода"
+      },
+      {
+        "title": "Перенести связку чата с ботом в общий код сайтов",
+        "status": "done",
+        "note": "Проверено на боевом сайте"
+      },
+      {
+        "title": "Перенести сам чат в общий код всех сетей",
+        "status": "active",
+        "note": "Опубликовано разработчиком, ждёт проверки"
+      },
+      {
+        "title": "Исправить дизайн окна чата",
+        "status": "active",
+        "note": "Кнопка чата и кнопка «Наверх» на одной высоте; агент сделал, ждёт проверки"
+      },
+      {
+        "title": "Запустить чат на сайтах всех сетей",
+        "status": "todo"
+      }
+    ]
+  },
+  "artifacts": [
+    {
+      "title": "Бот на сайте roadbus.ru",
+      "type": "Ссылка",
+      "url": "https://roadbus.ru/"
+    },
+    {
+      "title": "Тестовый сайт бота",
+      "type": "Ссылка",
+      "url": "https://lankedok-spec.github.io/qualifier/"
+    },
+    {
+      "title": "Макет чата для сайтов сети",
+      "type": "Макет",
+      "url": "https://people-handle-95379583.figma.site/"
+    }
+  ]
+}
+</script>
+
+<main class="page">
+  <header class="head">
+    <div>
+      <h1 class="name"></h1>
+      <p class="summary"></p>
+    </div>
+    <div class="meta"></div>
+  </header>
+
+  <section class="goal" aria-labelledby="goal-label">
+    <div>
+      <p class="label" id="goal-label">Цель проекта</p>
+      <p class="goal-title"></p>
+    </div>
+    <div class="deadline"></div>
+  </section>
+
+  <div class="lower">
+    <div>
+      <section class="block" aria-labelledby="result-label">
+        <h2 class="block-title" id="result-label">Текущий результат</h2>
+        <p class="result"></p>
+      </section>
+      <section class="block arts" aria-labelledby="arts-label">
+        <h2 class="block-title" id="arts-label">Готовые артефакты</h2>
+        <div class="art-list"></div>
+      </section>
+    </div>
+
+    <section class="block" aria-labelledby="ms-label">
+      <div class="ms-top">
+        <h2 class="block-title" id="ms-label">Промежуточная цель</h2>
+        <div class="ms-meta"></div>
+      </div>
+      <p class="ms-title"></p>
+      <ol class="route"></ol>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  var data = JSON.parse(document.getElementById('onepager-data').textContent);
+  var $ = function (s) { return document.querySelector(s); };
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  // Номера задач (№1234567) превращаются в ссылки на ERP; остальной текст вставляется как текст.
+  function appendTicketLinks(node, value) {
+    var text = String(value == null ? '' : value);
+    var re = /(?:№\s*)?(\d{7})(?!\d)/g;
+    var last = 0;
+    var match;
+    while ((match = re.exec(text)) !== null) {
+      if (match.index > 0 && /\d/.test(text.charAt(match.index - 1))) continue;
+      node.append(document.createTextNode(text.slice(last, match.index)));
+      var a = document.createElement('a');
+      a.href = 'https://erp.holdingbp.ru/EditDeveloperTicket/' + match[1];
+      a.target = '_blank';
+      a.rel = 'noopener noreferrer';
+      a.className = 'ticket-link';
+      a.textContent = match[0];
+      node.append(a);
+      last = re.lastIndex;
+    }
+    node.append(document.createTextNode(text.slice(last)));
+  }
+
+  var DAY = 86400000;
+  var now = new Date();
+  var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  function parse(s) {
+    if (!s) return null;
+    var p = String(s).split('-').map(Number);
+    return new Date(p[0], p[1] - 1, p[2]);
+  }
+  function fmt(d) {
+    var o = { day: 'numeric', month: 'long' };
+    if (d.getFullYear() !== today.getFullYear()) o.year = 'numeric';
+    return d.toLocaleDateString('ru-RU', o);
+  }
+  function diff(d) { return Math.round((d - today) / DAY); }
+  function plural(n, f) {
+    n = Math.abs(n) % 100;
+    var n1 = n % 10;
+    if (n > 10 && n < 20) return f[2];
+    if (n1 > 1 && n1 < 5) return f[1];
+    if (n1 === 1) return f[0];
+    return f[2];
+  }
+  function days(n) { return Math.abs(n) + ' ' + plural(n, ['день', 'дня', 'дней']); }
+  function left(d) {
+    var n = diff(d);
+    if (n > 0) return 'осталось ' + days(n);
+    if (n === 0) return 'это сегодня';
+    return 'срок прошёл ' + days(n) + ' назад';
+  }
+
+  var ICONS = {
+    done: '<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    blocked: '<svg viewBox="0 0 16 16" width="10" height="10" aria-hidden="true"><path d="M5.5 4v8M10.5 4v8" stroke="#5B6773" stroke-width="2.4" stroke-linecap="round"/></svg>'
+  };
+  var STAGE_LABEL = { done: 'готово', active: 'в работе', todo: 'не начато', blocked: 'заблокировано' };
+  var TAG = { active: 'в работе', blocked: 'заблокировано' };
+
+  // Шапка
+  $('.name').textContent = data.project || '';
+  $('.summary').textContent = data.summary || '';
+  document.title = (data.project || 'Проект') + ' — ванпейджер';
+  var meta = $('.meta');
+  if (data.owner) {
+    var o = el('div');
+    o.append('Ответственный: ', el('b', null, data.owner));
+    meta.append(o);
+  }
+  var upd = parse(data.updated);
+  if (upd) {
+    var u = el('div');
+    u.append('Обновлено ', el('b', null, fmt(upd)));
+    var ago = -diff(upd);
+    if (ago >= 7) u.append(' ', el('span', 'stale', '(' + days(ago) + ' назад)'));
+    meta.append(u);
+  }
+
+  // Цель проекта
+  var goal = data.goal || {};
+  $('.goal-title').textContent = goal.title || '';
+  var gd = parse(goal.deadline);
+  var dbox = $('.deadline');
+  if (gd) {
+    dbox.append(el('p', 'label', 'Срок'), el('div', 'deadline-date', fmt(gd)), el('div', 'deadline-left', left(gd)));
+  } else if (goal.estimate) {
+    dbox.append(el('p', 'label', 'Осталось'), el('div', 'deadline-date', goal.estimate), el('div', 'deadline-left', 'прогноз трудозатрат'));
+  } else {
+    dbox.remove();
+  }
+
+  // Текущий результат
+  appendTicketLinks($('.result'), data.result);
+
+  // Артефакты
+  var arts = data.artifacts || [];
+  var al = $('.art-list');
+  if (!arts.length) al.append(el('p', 'empty', 'Пока ничего.'));
+  arts.forEach(function (a) {
+    var link = el(a.url ? 'a' : 'div', 'art');
+    if (a.url) { link.href = a.url; link.target = '_blank'; link.rel = 'noopener'; }
+    link.append(el('span', 'art-title', a.title));
+    if (a.type) link.append(el('span', 'art-type', a.type));
+    al.append(link);
+  });
+
+  // Промежуточная цель
+  var ms = data.milestone || {};
+  $('.ms-title').textContent = ms.title || '';
+  var mm = $('.ms-meta');
+  var md = parse(ms.deadline);
+  if (md) {
+    var d = el('span');
+    d.append('Срок ', el('strong', null, fmt(md)), ', ' + left(md));
+    mm.append(d);
+  }
+  var stages = ms.stages || [];
+  var done = stages.filter(function (x) { return x.status === 'done'; }).length;
+  if (stages.length) {
+    var c = el('span');
+    c.append('Готово ', el('strong', 'win', done + ' из ' + stages.length), ' ' + plural(stages.length, ['этапа', 'этапов', 'этапов']));
+    mm.append(c);
+  }
+
+  var route = $('.route');
+  stages.forEach(function (x) {
+    var s = STAGE_LABEL[x.status] ? x.status : 'todo';
+    var li = el('li', 'stop ' + s);
+    var m = el('span', 'mark');
+    m.setAttribute('role', 'img');
+    m.setAttribute('aria-label', STAGE_LABEL[s]);
+    if (ICONS[s]) m.innerHTML = ICONS[s];
+    var b = el('div');
+    var head = el('div', 'stop-head');
+    var t = el('div', 'stop-title', x.title);
+    t.title = x.title || '';
+    head.append(t);
+    if (TAG[s]) head.append(el('span', 'tag', TAG[s]));
+    b.append(head);
+    if (x.note) {
+      var note = el('div', 'stop-note');
+      note.title = x.note;
+      appendTicketLinks(note, x.note);
+      b.append(note);
+    }
+    li.append(m, b);
+    route.append(li);
+  });
+})();
+</script>
+</body>
+</html>
